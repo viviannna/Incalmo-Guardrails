@@ -33,7 +33,8 @@ const App = () => {
     hostsLoading,
     hostsError,
     lastHostsUpdate,
-    actionLogs,
+    lowLevelLogs,
+    highLevelLogs,
     actionStreamConnected,
     actionStreamError,
     llmLogs,
@@ -140,11 +141,9 @@ const App = () => {
                       />
                     ) : (
                         <TimelineGraph 
-                          hosts={hosts}
-                          loading={hostsLoading}
-                          error={hostsError}
-                          lastUpdate={lastHostsUpdate}
-                          onRefresh={fetchHosts}/>
+                          highLevelLogs={highLevelLogs}
+                          lowLevelLogs={lowLevelLogs}
+                        />
                     )}
                 </Box>
 
@@ -171,7 +170,7 @@ const App = () => {
               }}>
                 <Box sx={{ height: '50%', overflow: 'hidden' }}>
                   <ActionLogs
-                    logs={actionLogs}
+                    logs={lowLevelLogs}
                     isConnected={actionStreamConnected}
                     error={actionStreamError}
                   />

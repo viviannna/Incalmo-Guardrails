@@ -1,106 +1,166 @@
-import { useMemo } from 'react';
-import { Node, Edge, Position } from 'reactflow';
-import { Host } from '../types';
-import { getHostId } from '../utils/graphUtils';
+import { Node, Edge } from 'reactflow';
+import { HighLevelLogEntry, LowLevelLogEntry, Event } from '../types';
 
-interface UseTimelineDataProps {
-  hosts: Host[];
-  eventTimestamps: Map<string, Date>;
-  recordEventTime: (eventId: string, time?: Date) => void;
+interface TimelineData {
+  nodes: Node[];
+  edges: Edge[];
 }
 
-export const useTimelineData = ({ hosts, eventTimestamps, recordEventTime }: UseTimelineDataProps) => {
-  const { nodes, edges } = useMemo(() => {
-    if (!hosts || hosts.length === 0) return { nodes: [], edges: [] };
+export const createTimelineFromLogs = (highLevelLogs: HighLevelLogEntry[], lowLevelLogs: LowLevelLogEntry[]): TimelineData => {
+  // Sort logs by timestamp
+  const sortedLowLevelLogs = [...lowLevelLogs].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  const sortedHighLevelLogs = [...highLevelLogs].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  // Map to track low level action node IDs by their action_id
+  const lowLevelActionNodes: Record<string, string> = {};
+  
+  // Position tracking for low-level actions
+  let xPosLow = 100;
+  const xGapLow = 200; 
+  const yPosLow = 100; 
+  
+  // Position tracking - vertical spacing
+  let lastHighLevelX = 100; // Track last high level position
+  const xGapHigh = 400;
+  const yPosHigh = 300;
+  const yGapEvents = 150;
+  const yGapEventsNode = 100;
+  
+  const lowLevelPositions: Record<string, number> = {};
+ 
+  sortedLowLevelLogs.forEach((log, index) => {
+    const actionId = `low-${log.low_level_action_id}`;
+    lowLevelActionNodes[log.low_level_action_id] = actionId;
+    lowLevelPositions[log.low_level_action_id] = xPosLow;
 
-    const timelineNodes: Node[] = [];
-    const timelineEdges: Edge[] = [];
-    let lastNodeId = '';
-    let xPosition = 0;
-    const xIncrement = 250; // Horizontal spacing between nodes
-    const baseY = 100;      // Vertical position
+    // Add the low-level action node
+    nodes.push({
+      id: actionId,
+      type: 'lowLevelActionNode',
+      position: { x: xPosLow, y: yPosLow },
+      data: {...log}
+    });
+    
+    xPosLow += xGapLow;
+  });
+  
+  // Process each high-level action log
+  sortedHighLevelLogs.forEach((log, index) => {
+    const actionId = `high-${log.high_level_action_id}`;
+    const eventsNodeId = `events-${log.high_level_action_id}`;
 
-    // First, add a "start" node
-    const startId = 'timeline-start';
+    // Find all related low level node positions
+    const relatedNodePositions = log.low_level_action_ids
+      .map(id => lowLevelPositions[id])
+      .filter(pos => pos !== undefined);
     
-    // Record timestamp for start if not already recorded
-    recordEventTime(startId);
-    const startTime = eventTimestamps.get(startId) || new Date();
+    let xPosHigh;
+    if (relatedNodePositions.length > 0) {
+      const minX = Math.min(...relatedNodePositions);
+      const maxX = Math.max(...relatedNodePositions);
+      xPosHigh = minX + (maxX - minX) / 2;
+      xPosHigh = Math.max(xPosHigh, lastHighLevelX + xGapHigh);
+    }else {
+      xPosHigh = lastHighLevelX + xGapHigh;
+    }
     
-    lastNodeId = startId;
-    xPosition += xIncrement;
+    // Add the high-level action node
+    console.log('Adding High Level Log Node:', log);
+    nodes.push({
+      id: actionId,
+      type: 'highLevelActionNode',
+      position: { x: xPosHigh, y: yPosHigh },
+      data: { ...log }
+    });
     
-    hosts.forEach((host, index) => {
-      const hostId = getHostId(host, index);
-      
-      // Host discovery event
-      const discoveryId = `discovery-${hostId}`;
-      
-      // Record timestamp if not already recorded
-      recordEventTime(discoveryId);
-      const discoveryTime = eventTimestamps.get(discoveryId) || new Date();
-      
-      timelineNodes.push({
-        id: discoveryId,
-        type: 'discoveryNode',
-        data: { 
-          label: `${hostId} Discovered`,
-          host,
-          time: discoveryTime.toLocaleTimeString(),
-        },
-        position: { x: xPosition, y: baseY },
-        draggable: false,
-        // sourcePosition: Position.Left,
-        // targetPosition: Position.Right
+    // Add the "Events generated" node below it
+    nodes.push({
+      id: eventsNodeId,
+      type: 'eventsGeneratedNode',
+      position: { x: xPosHigh, y: 100 + yPosHigh + yGapEventsNode },
+      data: {}
+    });
+    
+    // Connect action node to events node
+    edges.push({
+      id: `edge-${actionId}-${eventsNodeId}`,
+      source: actionId,
+      target: eventsNodeId,
+      sourceHandle: 'events',
+      label: 'Events',
+      type: 'default'
+    });
+    
+    // Connect with previous action if not the first one
+    if (index > 0) {
+      const prevActionId = `high-${sortedHighLevelLogs[index-1].high_level_action_id}`;
+      edges.push({
+        id: `edge-${prevActionId}-${actionId}`,
+        source: prevActionId,
+        target: actionId,
+        sourceHandle: 'right',
+        targetHandle: 'left',
+        animated: true,
+        type: 'smoothstep'
       });
-      
-      // Add edge from previous node
-      timelineEdges.push({
-        id: `edge-${lastNodeId}-${discoveryId}`,
-        source: lastNodeId,
-        target: discoveryId,
-        type: 'smoothstep',
-        animated: false,
-        style: { stroke: '#2196f3', strokeWidth: 2 },
-      });
-      
-      lastNodeId = discoveryId;
-      xPosition += xIncrement;
-      
-      if (host.infected) {
-        const infectionId = `infection-${hostId}`;
+    }
 
-        recordEventTime(infectionId);
-        const infectionTime = eventTimestamps.get(infectionId) || new Date();
-        
-        timelineNodes.push({
-          id: infectionId,
-          type: 'infectionNode',
-          data: { 
-            label: `${hostId} Infected`,
-            host,
-            time: infectionTime.toLocaleTimeString(),
-          },
-          position: { x: xPosition, y: baseY },
-          draggable: false,
+    // Connect high-level action to its low-level actions
+    log.low_level_action_ids.forEach(lowLevelId => {
+      const lowNodeId = lowLevelActionNodes[lowLevelId];
+      if (lowNodeId) {
+        edges.push({
+          id: `edge-${actionId}-${lowNodeId}`,
+          target: actionId,
+          source: lowNodeId,
+          type: 'default',
         });
-        
-        timelineEdges.push({
-          id: `edge-${lastNodeId}-${infectionId}`,
-          source: lastNodeId,
-          target: infectionId,
-          type: 'smoothstep',
-          animated: false,
-          style: { stroke: '#f44336', strokeWidth: 2 },
-        });
-        
-        lastNodeId = infectionId;
-        xPosition += xIncrement;
       }
     });
     
-    return { nodes: timelineNodes, edges: timelineEdges };
-  }, [hosts, eventTimestamps, recordEventTime]);
+    // Process individual events
+    if (log.action_results) {
+      // Convert action_results object to array of events
+      const events: Event[] = Object.entries(log.action_results).map(([eventName, eventData]) => ({
+        event_name: eventName,
+        event_properties: eventData
+      }));
 
+      const eventCount = events.length;
+      const eventTotalWidth = Math.max(400, eventCount * 150);
+      const eventStart = xPosHigh - (eventTotalWidth / 2);
+      const eventGap = eventTotalWidth / Math.max(1, eventCount - 1);
+      
+      events.forEach((event, eventIndex) => {
+        const eventId = `event-${log.high_level_action_id}-${eventIndex}`;
+        const xPosEvent = eventCount === 1 ? xPosHigh : eventStart + (eventGap * eventIndex);
+        
+        // Add event node
+        nodes.push({
+          id: eventId,
+          type: 'eventNode',
+          position: { x: xPosEvent, y: 100 + yPosHigh + yGapEventsNode + yGapEvents},
+          data: {...event}
+        });
+        
+        // Connect events node to this event
+        edges.push({
+          id: `edge-${eventsNodeId}-${eventId}`,
+          source: eventsNodeId,
+          target: eventId,
+          type: 'default'
+        });
+        
+      });
+    }
+
+  });
+  
   return { nodes, edges };
 };

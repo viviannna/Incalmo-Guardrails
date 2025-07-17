@@ -1,4 +1,4 @@
-import { Agents, Strategy, MessageType, StrategyInfo, ActionLogEntry, CommandResult } from './api.types';
+import { Agents, Strategy, MessageType, StrategyInfo, LowLevelLogEntry, CommandResult, HighLevelLogEntry, Event } from './api.types';
 
 // Header
 export interface HeaderProps {
@@ -48,11 +48,25 @@ export interface NetworkGraphProps {
   onRefresh: () => void;
 }
 
-export interface TimelineGraphProps extends NetworkGraphProps {
+export interface TimelineGraphProps {
+  highLevelLogs: HighLevelLogEntry[];
+  lowLevelLogs: LowLevelLogEntry[];
 }
 
 export interface HostNodeProps {
   data: Host;
+}
+
+export interface HighLevelActionNodeProps {
+  data: HighLevelLogEntry;
+}
+
+export interface LowLevelActionNodeProps {
+  data: LowLevelLogEntry; 
+}
+
+export interface EventsGeneratedNodeProps {
+  data: Event;
 }
 
 export interface NetworkStats {
@@ -64,7 +78,7 @@ export interface NetworkStats {
 
 // Logs
 export interface ActionLogsProps {
-  logs: ActionLogEntry[];
+  logs: LowLevelLogEntry[];
   isConnected: boolean;
   error: string | null;
 }

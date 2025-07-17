@@ -6,7 +6,8 @@ import {
   RunningStrategies,
   Agents,
   Strategy,
-  ActionLogEntry,
+  LowLevelLogEntry,
+  HighLevelLogEntry,
   MessageType,
   CommandResult
 } from '../types'
@@ -57,12 +58,15 @@ export const useIncalmoApi = () => {
   const [hostsError, setHostsError] = useState<string>('');
   const [lastHostsUpdate, setLastHostsUpdate] = useState<string>('');
 
-  const [actionLogs, setActionLogs] = useState<ActionLogEntry[]>([]);
+  const [lowLevelLogs, setLowLevelLogs] = useState<LowLevelLogEntry[]>([]);
+  const [highLevelLogs, setHighLevelLogs] = useState<HighLevelLogEntry[]>([]);
   const [actionStreamConnected, setActionStreamConnected] = useState<boolean>(false);
   const [actionStreamError, setActionStreamError] = useState<string | null>(null);
   const [llmLogs, setLLMLogs] = useState<string[]>([]);
   const [llmStreamConnected, setLLMStreamConnected] = useState<boolean>(false);
   const [llmStreamError, setLLMStreamError] = useState<string | null>(null);
+  
+
   const actionEventSourceRef = useRef<EventSource | null>(null);
   const llmEventSourceRef = useRef<EventSource | null>(null);
 
@@ -148,7 +152,8 @@ export const useIncalmoApi = () => {
 
     setLoading(true);
     setMessage('');
-    setActionLogs([]);
+    setLowLevelLogs([]);
+    setHighLevelLogs([]);
     setLLMLogs([]);
 
     try {
@@ -251,14 +256,19 @@ const fetchHosts = async () => {
           }
           
           if (data.type === 'LowLevelAction') {
-            setActionLogs(prevLogs => {
+            setLowLevelLogs(prevLogs => {
               const newLogs = [...prevLogs, data];
-              if (newLogs.length > 200) {
-                return newLogs.slice(-200);
-              }
               return newLogs;
             });
           }
+          
+          if (data.type === 'HighLevelAction') {
+            setHighLevelLogs(prevLogs => {
+              const newLogs = [...prevLogs, data];
+              return newLogs;
+            });
+          }
+
         } catch (e) {
           console.error('Error parsing action log data:', e);
         }
@@ -344,7 +354,8 @@ const fetchHosts = async () => {
     hostsLoading,       
     hostsError,         
     lastHostsUpdate, 
-    actionLogs,                
+    lowLevelLogs,                
+    highLevelLogs,                
     actionStreamConnected,     
     actionStreamError, 
     llmLogs,
