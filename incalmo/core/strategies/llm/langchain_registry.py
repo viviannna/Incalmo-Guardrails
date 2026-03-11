@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_deepseek import ChatDeepSeek
+from langchain_openrouter import ChatOpenRouter
 from typing import Dict, Any
 
 
@@ -41,12 +42,22 @@ class LangChainRegistry:
                 timeout=None,
                 stop=None,
             ),
-            "claude-3.5-haiku": lambda: ChatAnthropic(
-                model_name="claude-3-5-haiku-latest",
+
+        
+            # access claude 3.5 haiku using Open Router instead
+            "claude-3.5-haiku": lambda: ChatOpenRouter(
+                model_name="anthropic/claude-3.5-haiku",
                 temperature=0.7,
                 timeout=None,
                 stop=None,
             ),
+
+            # "claude-3.5-haiku": lambda: ChatAnthropic(
+            #     model_name="claude-3-5-haiku-latest",
+            #     temperature=0.7,
+            #     timeout=None,
+            #     stop=None,
+            # ),
             "claude-3.7-sonnet": lambda: ChatAnthropic(
                 model_name="claude-3-7-sonnet-latest",
                 temperature=0.7,
