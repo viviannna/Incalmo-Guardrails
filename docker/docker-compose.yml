@@ -1,9 +1,13 @@
+# defines the simulated internal network topology 
 networks:
+
+  # 3 containers/services 
+  # things on the same subnet can talk to each other 
   attacker_network:
-    driver: bridge
-    ipam:
+    driver: bridge # each network is a virtual LAN/subnet inside docker unless a container is attached to both
+    ipam: # IP address management
       config:
-        - subnet: 192.168.199.0/24
+        - subnet: 192.168.199.0/24 # defines the LAN itself
 
   web_network:
     driver: bridge
@@ -32,12 +36,14 @@ services:
       - ../:/incalmo
       - frontend-ignore:/incalmo/incalmo/frontend
       - venv-volume:/incalmo/.venv
+
+    # attacker container is connected to two networks -- can directly communicate with them
     networks:
       attacker_network:
-        ipv4_address: 192.168.199.10
+        ipv4_address: 192.168.199.10 # attaches container attacker to the attacker_network
       web_network:    
         ipv4_address: 192.168.200.10 
-    ports:
+    ports: # connects ports on local computer to ports on docker container
       - "127.0.0.1:8888:8888"
       - "127.0.0.1:6379:6379"
       - "127.0.0.1:5678:5678"
@@ -63,6 +69,17 @@ services:
     networks:
       db_network:
         ipv4_address: 192.168.201.100
+
+  # new admin environment
+  adminserver: 
+    build: 
+      context: ./adminserver
+    container_name: adminserver_container
+    restart: always
+    networks:
+      # connect to the web network 
+      web_network:
+        ipv4_address: 192.168.200.30 
 
 volumes:
   venv-volume:
