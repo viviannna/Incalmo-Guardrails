@@ -44,61 +44,63 @@ class LowLevelActionOrchestrator:
         # Get prior agents
         prior_agents = c2client.get_agents()
 
-        # Modifications
+        # Sanity check, running without any blocking 
 
-        # example default, refuse escalation for prefix 192.168.200 on ssh and 
-        # escalated perms
-        if not self.flagged_fns:
-            self.flagged_fns = {
-                "192.168.200": ["ssh", "scp"],
-                "192.168.201": ["scp"]
-            }
+        # # Modifications
+
+        # # example default, refuse escalation for prefix 192.168.200 on ssh and 
+        # # escalated perms
+        # if not self.flagged_fns:
+        #     self.flagged_fns = {
+        #         "192.168.200": ["ssh", "scp"],
+        #         "192.168.201": ["scp"]
+        #     }
         
-        if not self.flagged_act:
-            self.flagged_act = {
-                "192.168.200": [ "deception-runbashcommand"]
-                # "192.168.200": ["MD5SumAttackerData", "deception-runbashcommand"]
-            }
+        # if not self.flagged_act:
+        #     self.flagged_act = {
+        #         "192.168.200": [ "deception-runbashcommand"]
+        #         # "192.168.200": ["MD5SumAttackerData", "deception-runbashcommand"]
+        #     }
 
-        if hasattr(low_level_action, 'host'):
-            target_ips = getattr(low_level_action.host, 'ip_addresses', [])
-        elif hasattr(low_level_action, 'agent'):
-            target_ips = getattr(low_level_action.agent, 'host_ip_addrs', [])
+        # if hasattr(low_level_action, 'host'):
+        #     target_ips = getattr(low_level_action.host, 'ip_addresses', [])
+        # elif hasattr(low_level_action, 'agent'):
+        #     target_ips = getattr(low_level_action.agent, 'host_ip_addrs', [])
 
-        for addr_prefix, blocked_classes in self.flagged_act.items():
-            for blocked_class in blocked_classes:
-                if low_level_action.__class__.__name__ == blocked_class:
-                    if any(ip.startswith(addr_prefix) for ip in target_ips):
-                        print("INFO: BLOCKING ACTION")
-                        self.logger.info(
-                            f"Preventing action: {blocked_class}",
-                            type="ActionPrevention",
-                            timestamp=datetime.now().isoformat(),
-                            reason=f"Action {blocked_class} restricted on {addr_prefix}",
-                            high_level_action_id=context.hl_id if context else "",
-                            low_level_action_id=action_ll_id,
-                            action_name=low_level_action.__class__.__name__,
-                            action_params=serialize(low_level_action),
-                        )
-                        return [BlockedAction(blocked_class, addr_prefix)]
+        # for addr_prefix, blocked_classes in self.flagged_act.items():
+        #     for blocked_class in blocked_classes:
+        #         if low_level_action.__class__.__name__ == blocked_class:
+        #             if any(ip.startswith(addr_prefix) for ip in target_ips):
+        #                 print("INFO: BLOCKING ACTION")
+        #                 self.logger.info(
+        #                     f"Preventing action: {blocked_class}",
+        #                     type="ActionPrevention",
+        #                     timestamp=datetime.now().isoformat(),
+        #                     reason=f"Action {blocked_class} restricted on {addr_prefix}",
+        #                     high_level_action_id=context.hl_id if context else "",
+        #                     low_level_action_id=action_ll_id,
+        #                     action_name=low_level_action.__class__.__name__,
+        #                     action_params=serialize(low_level_action),
+        #                 )
+        #                 return [BlockedAction(blocked_class, addr_prefix)]
         
 
-        for addr_prefix, blocked_cmds in self.flagged_fns.items():
-            for cmd in blocked_cmds:
-                if cmd in low_level_action.command:
-                    if any(ip.startswith(addr_prefix) for ip in target_ips):
-                        print("INFO: BLOCKING FUNCTION")
-                        self.logger.info(
-                            f"Preventing function: {cmd}",
-                            type="CMDPrevention",
-                            timestamp=datetime.now().isoformat(),
-                            reason=f"Command {cmd} restricted on {addr_prefix}",
-                            high_level_action_id=context.hl_id if context else "",
-                            low_level_action_id=action_ll_id,
-                            action_name=low_level_action.__class__.__name__,
-                            action_params=serialize(low_level_action),
-                        )
-                        return [BlockedFn(cmd, addr_prefix)]
+        # for addr_prefix, blocked_cmds in self.flagged_fns.items():
+        #     for cmd in blocked_cmds:
+        #         if cmd in low_level_action.command:
+        #             if any(ip.startswith(addr_prefix) for ip in target_ips):
+        #                 print("INFO: BLOCKING FUNCTION")
+        #                 self.logger.info(
+        #                     f"Preventing function: {cmd}",
+        #                     type="CMDPrevention",
+        #                     timestamp=datetime.now().isoformat(),
+        #                     reason=f"Command {cmd} restricted on {addr_prefix}",
+        #                     high_level_action_id=context.hl_id if context else "",
+        #                     low_level_action_id=action_ll_id,
+        #                     action_name=low_level_action.__class__.__name__,
+        #                     action_params=serialize(low_level_action),
+        #                 )
+        #                 return [BlockedFn(cmd, addr_prefix)]
         
         # Run action with C2C server and get result
         command_result = c2client.send_command(low_level_action)
