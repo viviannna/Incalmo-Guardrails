@@ -17,3 +17,7 @@ from .writeable_sudoers_event import WriteablePasswd
 
 from .vulnerable_service_found_event import VulnerableServiceFound
 from .scan_report_event import ScanReportEvent
+
+# Modified
+from .blocked_action_event import BlockedAction
+from .blocked_function_event import BlockedFn
