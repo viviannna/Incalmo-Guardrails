@@ -33,9 +33,35 @@ class LowLevelActionOrchestrator:
         self.flagged_fns = forbid_by_fns
         self.flagged_act = forbid_by_act
 
+        # Define Policy: [IP Address][Block/Allow][Low Level Policy]
+        # First round: block all commands to admin server
+        # NOTE: lowkey this might be insane because i think this might be blocking everyone ??? 
+        self.policy = {
+            "192.168.200.30": {
+                "block": {
+                    "AddSSHKey",
+                    "CopyFile",
+                    "ExploitStruts",
+                    "FindSSHConfig",
+                    "ListFilesInDirectory",
+                    "MD5SumAttackerData",
+                    "NCLateralMove",
+                    "NiktoScan",
+                    "ReadFile",
+                    "RunBashCommand",
+                    "ScanHost",
+                    "ScanNetwork",
+                    "ScpFile",
+                    "SSHLateralMove",
+                    "WGetFile",
+                    "WriteFile",
+                }
+            }
+        }
+
+
     async def run_action(
-        self, low_level_action: LowLevelAction, context: HighLevelContext | None = None
-    ) -> list[Event]:
+        self, low_level_action: LowLevelAction, context: HighLevelContext | None = None) -> list[Event]:
         action_ll_id = str(uuid4())
         if context:
             context.ll_id.append(action_ll_id)
@@ -44,64 +70,20 @@ class LowLevelActionOrchestrator:
         # Get prior agents
         prior_agents = c2client.get_agents()
 
-        # Sanity check, running without any blocking 
+        print(f"LOW LEVEL ACTION: {low_level_action}")
 
-        # # Modifications
+        # action_name = low_level_action.__class__.__name__
+        # target_ips = self._get_target_ips(low_level_action)
 
-        # # example default, refuse escalation for prefix 192.168.200 on ssh and 
-        # # escalated perms
-        # if not self.flagged_fns:
-        #     self.flagged_fns = {
-        #         "192.168.200": ["ssh", "scp"],
-        #         "192.168.201": ["scp"]
-        #     }
-        
-        # if not self.flagged_act:
-        #     self.flagged_act = {
-        #         "192.168.200": [ "deception-runbashcommand"]
-        #         # "192.168.200": ["MD5SumAttackerData", "deception-runbashcommand"]
-        #     }
+        # admin_on_web_ip = "192.168.200.30"
 
-        # if hasattr(low_level_action, 'host'):
-        #     target_ips = getattr(low_level_action.host, 'ip_addresses', [])
-        # elif hasattr(low_level_action, 'agent'):
-        #     target_ips = getattr(low_level_action.agent, 'host_ip_addrs', [])
+        # print(f"[RUN ACTION] Action Name: {action_name}, Target: {target_ips}")
 
-        # for addr_prefix, blocked_classes in self.flagged_act.items():
-        #     for blocked_class in blocked_classes:
-        #         if low_level_action.__class__.__name__ == blocked_class:
-        #             if any(ip.startswith(addr_prefix) for ip in target_ips):
-        #                 print("INFO: BLOCKING ACTION")
-        #                 self.logger.info(
-        #                     f"Preventing action: {blocked_class}",
-        #                     type="ActionPrevention",
-        #                     timestamp=datetime.now().isoformat(),
-        #                     reason=f"Action {blocked_class} restricted on {addr_prefix}",
-        #                     high_level_action_id=context.hl_id if context else "",
-        #                     low_level_action_id=action_ll_id,
-        #                     action_name=low_level_action.__class__.__name__,
-        #                     action_params=serialize(low_level_action),
-        #                 )
-        #                 return [BlockedAction(blocked_class, addr_prefix)]
-        
+        # should_block, blocked_action_name, blocked_ip = self._check_against_policy(low_level_action)
+        # print(f"[RUN ACTION] Should block: {should_block}, equals admin on web? {admin_on_web_ip in target_ips} ")
 
-        # for addr_prefix, blocked_cmds in self.flagged_fns.items():
-        #     for cmd in blocked_cmds:
-        #         if cmd in low_level_action.command:
-        #             if any(ip.startswith(addr_prefix) for ip in target_ips):
-        #                 print("INFO: BLOCKING FUNCTION")
-        #                 self.logger.info(
-        #                     f"Preventing function: {cmd}",
-        #                     type="CMDPrevention",
-        #                     timestamp=datetime.now().isoformat(),
-        #                     reason=f"Command {cmd} restricted on {addr_prefix}",
-        #                     high_level_action_id=context.hl_id if context else "",
-        #                     low_level_action_id=action_ll_id,
-        #                     action_name=low_level_action.__class__.__name__,
-        #                     action_params=serialize(low_level_action),
-        #                 )
-        #                 return [BlockedFn(cmd, addr_prefix)]
-        
+
+
         # Run action with C2C server and get result
         command_result = c2client.send_command(low_level_action)
 
@@ -130,7 +112,9 @@ class LowLevelActionOrchestrator:
             stdout=command_result.output,
         )
         return events
+        
 
+    
     def check_new_agents(
         self, ability_agent: Agent, prior_agents: list[Agent], post_agents: list[Agent]
     ):
@@ -157,3 +141,35 @@ class LowLevelActionOrchestrator:
                 return [InfectedNewHost(ability_agent, new_agent)]
 
         return []
+
+
+    # for a given low action, checks against the policy
+    def _check_against_policy(
+        self, low_level_action: LowLevelAction
+    ) -> tuple[bool, str | None, str | None]:
+        """
+        Returns:
+            (should_block, action_name, matched_ip)
+        """
+        action_name = low_level_action.__class__.__name__
+        target_ips = self._get_target_ips(low_level_action)
+
+        for ip in target_ips:
+            if ip in self.policy:
+                blocked_actions = self.policy[ip].get("block", set())
+                if action_name in blocked_actions:
+                    return True, action_name, ip
+
+        return False, None, None
+
+    # For a given low lvel action, checks which IPs it is attempting to run on 
+    def _get_target_ips(self, low_level_action: LowLevelAction) -> list[str]: 
+        
+        target_ips: list[str] = []
+
+        if hasattr(low_level_action, "host") and low_level_action.host is not None:
+            host_ips = getattr(low_level_action.host, "ip_addresses", [])
+            if host_ips:
+                target_ips.extend(host_ips)
+
+        return target_ips
