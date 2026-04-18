@@ -30,8 +30,8 @@ class LowLevelActionOrchestrator:
     ):
         # self.environment_state_service = environment_state_service
         self.logger = logging_service.action_logger()
-        self.flagged_fns = forbid_by_fns
-        self.flagged_act = forbid_by_act
+        self.flagged_fns = forbid_by_fns if forbid_by_fns is not None else dict()
+        self.flagged_act = forbid_by_act if forbid_by_act is not None else dict()
 
     async def run_action(
         self, low_level_action: LowLevelAction, context: HighLevelContext | None = None
@@ -50,13 +50,14 @@ class LowLevelActionOrchestrator:
         # escalated perms
         if not self.flagged_fns:
             self.flagged_fns = {
-                "192.168.200": ["ssh", "scp"],
-                "192.168.201": ["scp"]
+                # "192.168.200": ["ssh", "scp"],
+                # "192.168.201": ["scp"]
+                "192.168.200.30": ["ssh", "scp", "runbashcommand"],
             }
         
         if not self.flagged_act:
             self.flagged_act = {
-                "192.168.200": [ "deception-runbashcommand"]
+                # "192.168.200": [ "deception-runbashcommand"]
                 # "192.168.200": ["MD5SumAttackerData", "deception-runbashcommand"]
             }
 
