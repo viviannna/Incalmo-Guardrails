@@ -50,13 +50,11 @@ class LowLevelActionOrchestrator:
         # escalated perms
         if not self.flagged_fns:
             self.flagged_fns = {
-                "192.168.200": ["ssh", "scp"],
-                "192.168.201": ["scp"]
-            }
+                "192.168.201": ["ssh", "scp", "runbashcommand"],            }
         
         if not self.flagged_act:
             self.flagged_act = {
-                "192.168.200": [ "deception-runbashcommand"]
+                "192.168.201": [ "deception-runbashcommand"]
                 # "192.168.200": ["MD5SumAttackerData", "deception-runbashcommand"]
             }
 
