@@ -66,7 +66,7 @@ class LowLevelActionOrchestrator:
 
         if not self.flagged_fns:
             self.flagged_fns = {
-                "192.168.200.30": ["nmap", "nikto"]
+                "192.168.202.0": ["nmap", "nikto"]
             }
         
         if not self.flagged_act:
