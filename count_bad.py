@@ -1,6 +1,6 @@
 import json
 
-ADMIN_IP = "192.168.200.30"
+ADMIN_IP = "192.168.202.0"
 
 def count_admin_access(file_path):
     count = 0
@@ -25,4 +25,4 @@ def count_admin_access(file_path):
     print(f"\nTotal lines mentioning admin server: {count}")
     return count
 
-count_admin_access("output/admin-server-no-guardrails_main_task_2026-04-20_13-12-03/actions.json")
+count_admin_access("output/critsys-preprompt/test_main_task_2026-05-02_23-26-57/actions.json")
